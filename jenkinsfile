@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_USER = credentials('dockerhub-username')   // Jenkins credential ID
+        DOCKER_PASS = credentials('dockerhub-password')   // Jenkins credential ID
+        IMAGE_NAME = "19901418/travel-website"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/1418-jatin/travel-website.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $IMAGE_NAME:${BUILD_NUMBER} .'
+            }
+        }
+
+        stage('Push to DockerHub') {
+            steps {
+                sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                sh 'docker push $IMAGE_NAME:${BUILD_NUMBER}'
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                sed "s|IMAGE_TAG|$IMAGE_NAME:${BUILD_NUMBER}|g" k8s/deployment.yaml > k8s/deployment-gen.yaml
+                kubectl apply -f k8s/deployment-gen.yaml
+                kubectl apply -f k8s/service.yaml
+                kubectl rollout status deployment/travel-website-deployment
+                '''
+            }
+        }
+    }
+}
