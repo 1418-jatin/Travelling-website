@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'slave-nodes' }
+    agent { label 'slave-node' }
 
     environment {
         DOCKER_REPO  = "19901418/my-jenkins-python-app-ci-cd"
