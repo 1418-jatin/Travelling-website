@@ -42,15 +42,30 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu-cred',
                                                   keyFileVariable: 'PEM_KEY')]) {
                     sh '''
-                    ssh -i $PEM_KEY -o StrictHostKeyChecking=no ubuntu@${MASTER_IP} "
-                        export KUBECONFIG=/home/ubuntu/.kube/config &&
-                        kubectl apply -f /home/ubuntu/PRT/deployment.yml &&
-                        kubectl apply -f /home/ubuntu/PRT/service.yml &&
-                        kubectl rollout status deployment/travel-website-deployment
-                    "
+                        SSH_OPTS="-i $PEM_KEY -o StrictHostKeyChecking=no"
+
+                        # put the real image name into the manifest
+                        sed -i "s|IMAGE_TAG|${DOCKER_IMAGE}|g" deployment.yaml
+
+                        # copy manifests from this checkout to the master
+                        ssh $SSH_OPTS ubuntu@${MASTER_IP} "mkdir -p ~/PRT"
+                        scp $SSH_OPTS deployment.yaml service.yml ubuntu@${MASTER_IP}:~/PRT/
+
+                        # apply and wait
+                        ssh $SSH_OPTS ubuntu@${MASTER_IP} "
+                            kubectl apply -f ~/PRT/deployment.yaml &&
+                            kubectl apply -f ~/PRT/service.yml &&
+                            kubectl rollout status deployment/travel-website-deployment --timeout=120s
+                        "
                     '''
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout || true'
         }
     }
 }
