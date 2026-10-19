@@ -1,16 +1,16 @@
 pipeline {
-    agent any
+    agent { label 'slave-nodes' }
 
     environment {
-        DOCKER_USER = credentials('dockerhub-username')   // Jenkins credential ID
-        DOCKER_PASS = credentials('dockerhub-password')   // Jenkins credential ID
-        IMAGE_NAME = "19901418/travel-website"
+        DOCKER_REPO  = "19901418/my-jenkins-python-app-ci-cd"
+        DOCKER_IMAGE = "19901418/my-jenkins-python-app-ci-cd:${BUILD_NUMBER}"
+        MASTER_IP    = "18.188.124.101"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/1418-jatin/travel-website.git'
+                git 'https://github.com/1418-jatin/travelling-website.git'
             }
         }
 
@@ -20,15 +20,24 @@ pipeline {
             }
         }
 
-        stage('Push to DockerHub') {
+        stage('Push Docker Image') {
             steps {
-                sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                sh 'docker push $IMAGE_NAME:${BUILD_NUMBER}'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-cred',
+                                                 usernameVariable: 'DOCKER_USER',
+                                                 passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker push ${DOCKER_IMAGE}
+                        docker push ${DOCKER_REPO}:latest
+                    '''
+                }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu-cred',
+                                                  keyFileVariable: 'PEM_KEY')]) {
                 sh '''
                 sed "s|IMAGE_TAG|$IMAGE_NAME:${BUILD_NUMBER}|g" k8s/deployment.yaml > k8s/deployment-gen.yaml
                 kubectl apply -f k8s/deployment-gen.yaml
