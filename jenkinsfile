@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'slave-node' }
+    agent { label 'slave-nodes' }
 
     environment {
         DOCKER_REPO  = "19901418/my-jenkins-python-app-ci-cd"
@@ -16,8 +16,10 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t ${DOCKER_IMAGE} .'
-                docker tag ${DOCKER_IMAGE} ${DOCKER_REPO}:latest
+                sh '''
+                    docker build -t ${DOCKER_IMAGE} .
+                    docker tag ${DOCKER_IMAGE} ${DOCKER_REPO}:latest
+                '''
             }
         }
 
