@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'slave-nodes' }
+    agent { label 'slave-node' }
 
     environment {
         DOCKER_REPO  = "19901418/my-jenkins-python-app-ci-cd"
@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t ${DOCKER_IMAGE} -t ${DOCKER_REPO}:latest .'
+                sh 'docker build -t ${DOCKER_IMAGE} .'
             }
         }
 
@@ -37,17 +37,16 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu-cred',
-                                          keyFileVariable: 'PEM_KEY')]) {
+                                                  keyFileVariable: 'PEM_KEY')]) {
                     sh '''
                     ssh -i $PEM_KEY -o StrictHostKeyChecking=no ubuntu@${MASTER_IP} "
-                    sed \\"s|IMAGE_TAG|${DOCKER_IMAGE}|g\\" ~/k8s/deployment.yaml > ~/k8s/deployment-gen.yaml &&
-                    kubectl apply -f ~/k8s/deployment-gen.yaml &&
-                    kubectl apply -f ~/k8s/service.yaml &&
-                    kubectl rollout status deployment/travel-website-deployment
-                  "
-            '''
+                        kubectl apply -f /home/ubuntu/PRT/deployment.yml &&
+                        kubectl apply -f /home/ubuntu/PRT/service.yml &&
+                        kubectl rollout status deployment/travel-website-deployment
+                    "
+                    '''
+                }
+            }
         }
     }
-}
-
 }
