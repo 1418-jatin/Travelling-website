@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE_NAME:${BUILD_NUMBER} .'
+                sh 'docker build -t ${DOCKER_IMAGE} -t ${DOCKER_REPO}:latest .'
             }
         }
 
@@ -37,14 +37,17 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu-cred',
-                                                  keyFileVariable: 'PEM_KEY')]) {
-                sh '''
-                sed "s|IMAGE_TAG|$IMAGE_NAME:${BUILD_NUMBER}|g" k8s/deployment.yaml > k8s/deployment-gen.yaml
-                kubectl apply -f k8s/deployment-gen.yaml
-                kubectl apply -f k8s/service.yaml
-                kubectl rollout status deployment/travel-website-deployment
-                '''
-            }
+                                          keyFileVariable: 'PEM_KEY')]) {
+                    sh '''
+                    ssh -i $PEM_KEY -o StrictHostKeyChecking=no ubuntu@${MASTER_IP} "
+                    sed \\"s|IMAGE_TAG|${DOCKER_IMAGE}|g\\" ~/k8s/deployment.yaml > ~/k8s/deployment-gen.yaml &&
+                    kubectl apply -f ~/k8s/deployment-gen.yaml &&
+                    kubectl apply -f ~/k8s/service.yaml &&
+                    kubectl rollout status deployment/travel-website-deployment
+                  "
+            '''
         }
     }
+}
+
 }
