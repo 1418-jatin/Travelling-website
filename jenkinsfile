@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/1418-jatin/travelling-website.git'
+                git branch: 'main', url: 'https://github.com/1418-jatin/Travelling-website.git'
             }
         }
 
